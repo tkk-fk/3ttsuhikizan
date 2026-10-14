@@ -58,7 +58,7 @@ footer a{color:inherit}
   padding:20px 12px;gap:clamp(12px,3vh,28px);
   margin-bottom:max(0px,env(safe-area-inset-bottom));
 }
-/* 式：1段目＝数・－・＝・こたえ、2段目＝はじめの数の真下にブロック */
+/* 式：1段目＝数・－・＝・こたえ、2段目＝それぞれの数の真下にブロック */
 .expr{
   display:grid;grid-template-columns:repeat(7,auto);
   column-gap:clamp(4px,1.8vw,30px);row-gap:clamp(8px,2vh,18px);
@@ -70,7 +70,7 @@ footer a{color:inherit}
 .expr .op{color:var(--sub);font-weight:700}
 .hint-block .n1{color:var(--c1)} .hint-block .n2{color:var(--c2)} .hint-block .n3{color:var(--c3)}
 .bcol{
-  grid-row:2;grid-column:1;align-self:start;
+  grid-row:2;align-self:start;
   display:grid;grid-template-rows:repeat(5,var(--bs));grid-auto-flow:column;grid-auto-columns:var(--bs);gap:4px;
 }
 /* さくらんぼ：まえの 2つの かずから 線をのばして □ へ */
@@ -80,12 +80,13 @@ footer a{color:inherit}
 .cherry rect{fill:none;stroke:#c3d6ec;stroke-dasharray:10 8;stroke-linecap:round}
 .cherry text{fill:var(--accent);font-weight:900;text-anchor:middle;dominant-baseline:central;font-family:inherit}
 .cherry text.hidden{visibility:hidden}
-.blk{position:relative;width:var(--bs);height:var(--bs);border-radius:6px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.15)}
+.blk{position:relative;width:var(--bs);height:var(--bs);border-radius:18%;box-shadow:inset 0 -3px 0 rgba(0,0,0,.15)}
+.bcol.c-1{grid-column:1} .bcol.c-2{grid-column:3} .bcol.c-3{grid-column:5}
 .blk.c1{background:var(--c1)}
 /* とる ブロック：ひく数の色で うすく＋ななめ線 */
-.blk.out{box-shadow:none;background:#fff;border:3px solid}
+.blk.out{box-shadow:none;background:#fff;border:clamp(2px,calc(var(--bs)*.08),3px) solid}
 .blk.out::after{
-  content:"";position:absolute;left:50%;top:-12%;width:3px;height:124%;
+  content:"";position:absolute;left:50%;top:-12%;width:clamp(1.5px,calc(var(--bs)*.08),3px);height:124%;
   transform:translateX(-50%) rotate(45deg);border-radius:2px;
 }
 .blk.out.c2{border-color:var(--c2);background:#fdf0d6} .blk.out.c2::after{background:var(--c2)}
@@ -93,6 +94,16 @@ footer a{color:inherit}
 .answer{font-weight:900;line-height:1.1;color:var(--accent);min-width:1.2em;text-align:center}
 .answer.hidden{visibility:hidden}
 
+@media (max-width:520px) and (orientation:portrait){
+  .expr{--bs:clamp(11px,3.4vw,20px);column-gap:clamp(4px,2.4vw,14px)}
+  .bcol{gap:3px}
+}
+@media (max-width:360px) and (orientation:portrait){
+  .card{padding:16px 6px}
+  .num,.op,.answer{font-size:clamp(26px,9vw,40px)}
+  .expr{--bs:10px;column-gap:4px}
+  .bcol{gap:2px}
+}
 @media (orientation:landscape) and (max-height:520px){
   #play{gap:8px;padding:8px 16px}
   .card{padding:10px;gap:6px;border-radius:20px}
@@ -190,12 +201,10 @@ function shuffle(arr, rnd){
 function makeSet(level, n, rnd){
   return shuffle(buildProblems(level), rnd).slice(0, n);
 }
-// ブロックの ならび：a こ のうち、うしろから b こ（さいしょに とる）、つぎに c こ を とる
-// → まえから「のこり（c1）」「c で とる（c3）」「b で とる（c2）」
+// ブロックの ならび：それぞれの 数の 真下に その数だけ
+// ひかれる数（a）は ぬりつぶし、ひく数（b・c）は ななめ線
 function blockPlan(a,b,c){
-  const r = a-b-c, out = [];
-  for(let k=0;k<a;k++) out.push(k<r ? 'c1' : (k<r+c ? 'out c3' : 'out c2'));
-  return out;
+  return [[a,'c1'],[b,'out c2'],[c,'out c3']];
 }
 
 /* ===== 画面 ===== */
@@ -239,12 +248,12 @@ function render(){
     '<span class="num n3">'+c+'</span><span class="op">＝</span>'+
     '<span class="answer hidden" id="answer">'+(a-b-c)+'</span>';
   if(state.hint === 'block'){
-    // はじめの数の 真下に、たて5こずつで ならべる（とる ぶんは ひく数の色）
-    const g=document.createElement('div'); g.className='bcol';
-    blockPlan(a,b,c).forEach(cls=>{
-      const d=document.createElement('div'); d.className='blk '+cls; g.appendChild(d);
+    // それぞれの数の 真下に、たて5こずつで ならべる
+    blockPlan(a,b,c).forEach(([n,cls],i)=>{
+      const g=document.createElement('div'); g.className='bcol c-'+(i+1);
+      for(let k=0;k<n;k++){ const d=document.createElement('div'); d.className='blk '+cls; g.appendChild(d); }
+      e.appendChild(g);
     });
-    e.appendChild(g);
   }else if(state.hint === 'cherry'){
     const ch=document.createElement('div'); ch.className='cherry';
     ch.innerHTML='<svg aria-hidden="true"><line/><line/><rect/><text class="hidden" id="mid"></text></svg>';
