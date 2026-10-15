@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>3つの かずの ひきざん｜特別支援教材開発研究所</title>
-<meta name="description" content="小学1年生「3つの数のひき算」のフラッシュカード。ヒントで数図ブロックやさくらんぼ計算の図を表示できます。">
+<title>3つの かずの けいさん｜特別支援教材開発研究所</title>
+<meta name="description" content="小学1年生「3つの数のたし算・ひき算」のフラッシュカード。たし算だけ・ひき算だけ・まぜるを選べ、ヒントで数図ブロックやさくらんぼ計算の図を表示できます。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
@@ -58,7 +58,7 @@ footer a{color:inherit}
   padding:20px 12px;gap:clamp(12px,3vh,28px);
   margin-bottom:max(0px,env(safe-area-inset-bottom));
 }
-/* 式：1段目＝数・－・＝・こたえ、2段目＝それぞれの数の真下にブロック */
+/* 式：1段目＝数・＋－・＝・こたえ、2段目＝それぞれの数の真下にブロック */
 .expr{
   display:grid;grid-template-columns:repeat(7,auto);
   column-gap:clamp(4px,1.8vw,30px);row-gap:clamp(8px,2vh,18px);
@@ -82,7 +82,7 @@ footer a{color:inherit}
 .cherry text.hidden{visibility:hidden}
 .blk{position:relative;width:var(--bs);height:var(--bs);border-radius:18%;box-shadow:inset 0 -3px 0 rgba(0,0,0,.15)}
 .bcol.c-1{grid-column:1} .bcol.c-2{grid-column:3} .bcol.c-3{grid-column:5}
-.blk.c1{background:var(--c1)}
+.blk.c1{background:var(--c1)} .blk.c2{background:var(--c2)} .blk.c3{background:var(--c3)}
 /* とる ブロック：ひく数の色で うすく＋ななめ線 */
 .blk.out{box-shadow:none;background:#fff;border:clamp(2px,calc(var(--bs)*.08),3px) solid}
 .blk.out::after{
@@ -118,14 +118,23 @@ footer a{color:inherit}
 
 <!-- せってい -->
 <section id="start" class="screen on">
-  <h1>3つの かずの ひきざん</h1>
+  <h1>3つの かずの けいさん</h1>
 
   <div class="group">
     <h2>もんだい</h2>
     <div class="choices" id="levelChoices">
       <button class="choice" data-v="1" aria-pressed="true">10までの かず</button>
-      <button class="choice" data-v="2" aria-pressed="false">10と いくつから</button>
+      <button class="choice" data-v="2" aria-pressed="false">10を つくる</button>
       <button class="choice" data-v="3" aria-pressed="false">20までの かず</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <h2>けいさん</h2>
+    <div class="choices" id="modeChoices">
+      <button class="choice" data-v="add" aria-pressed="true">たしざん だけ</button>
+      <button class="choice" data-v="sub" aria-pressed="false">ひきざん だけ</button>
+      <button class="choice" data-v="mix" aria-pressed="false">まぜる</button>
     </div>
   </div>
 
@@ -170,24 +179,49 @@ footer a{color:inherit}
 "use strict";
 
 /* ===== 問題づくり（純粋関数） ===== */
-// a − b − c の [a,b,c]
-// level 1: 10までの かず（a は 3〜10, b,c ≥ 1, こたえ ≥ 0）
-// level 2: 10と いくつから（a は 11〜19, b = a−10, c は 1〜9 → 10 − c）
-// level 3: 20までの かず（a は 11〜20, b,c は 1〜9, こたえ ≥ 0, level 2 の形はのぞく）
-function buildProblems(level){
-  const list = [];
+// 問題は [a, o1, b, o2, c]（o は +1 か −1）。a o1 b o2 c ＝ こたえ
+// 形：pp＝a＋b＋c、mm＝a−b−c、mp＝a−b＋c、pm＝a＋b−c
+// どの形も、とちゅうの数・こたえは 0 以上、上限（10 か 20）以下
+// level 1: 10までの かず
+// level 2: 10と いくつから（はじめの計算で ちょうど10 になる形）
+// level 3: 20までの かず（b,c は 1〜9。level 2 の形はのぞく）
+// ※ pp（たしざん だけ）は もとの「3つの かずの たしざん」と おなじ はんい
+function calc(p){ const m = p[0] + p[1]*p[2]; return { mid:m, ans: m + p[3]*p[4] }; }
+function buildPattern(level, pat){
+  const list = [], o1 = (pat==='pm'||pat==='pp') ? 1 : -1, o2 = (pat==='mp'||pat==='pp') ? 1 : -1;
+  const push = (a,b,c)=>list.push([a,o1,b,o2,c]);
+  if(pat === 'pp' && level === 3){               // こたえ 11〜20、a,b,c は 1〜9
+    for(let a=1;a<=9;a++)for(let b=1;b<=9;b++)for(let c=1;c<=9;c++){
+      const r=a+b+c; if(r>=11&&r<=20) push(a,b,c);
+    }
+    return list;
+  }
   if(level === 1){
-    for(let a=3;a<=10;a++)for(let b=1;b<a;b++)for(let c=1;c<a;c++){
-      if(a-b-c>=0) list.push([a,b,c]);
+    for(let a=1;a<=10;a++)for(let b=1;b<=9;b++)for(let c=1;c<=9;c++){
+      const m=a+o1*b, r=m+o2*c;
+      if(m>=0&&m<=10&&r>=0&&r<=10&&!(o1<0&&a<3&&o2<0)) push(a,b,c);
     }
   }else if(level === 2){
-    for(let a=11;a<=19;a++)for(let c=1;c<=9;c++) list.push([a,a-10,c]);
+    for(let c=1;c<=9;c++){
+      if(o1<0) for(let a=11;a<=19;a++) push(a,a-10,c);
+      else     for(let a=1;a<=9;a++)  push(a,10-a,c);
+    }
   }else{
-    for(let a=11;a<=20;a++)for(let b=1;b<=9;b++)for(let c=1;c<=9;c++){
-      if(a-b-c>=0 && b!==a-10) list.push([a,b,c]);
+    for(let a=1;a<=20;a++)for(let b=1;b<=9;b++)for(let c=1;c<=9;c++){
+      const m=a+o1*b, r=m+o2*c;
+      if(m<0||m>20||r<0||r>20) continue;
+      if(m===10) continue;                       // level 2 の形
+      if(Math.max(a,m,r)<=10) continue;          // level 1 の はんい
+      if(o1<0 && a<11) continue;                 // ひく形は はじめの数を 11〜20 に
+      push(a,b,c);
     }
   }
   return list;
+}
+// mode: 'add'（たしざん）/ 'sub'（ひきざん）/ 'mix'（まぜる）
+const MODE_PATTERNS = { add:['pp'], sub:['mm'], mix:['pp','mm','mp','pm'] };
+function buildProblems(level, mode){
+  return (MODE_PATTERNS[mode] || MODE_PATTERNS.add).map(pt=>buildPattern(level, pt));
 }
 function shuffle(arr, rnd){
   const a = arr.slice();
@@ -197,19 +231,23 @@ function shuffle(arr, rnd){
   }
   return a;
 }
-// 1回分の問題を n問 えらぶ（同じ問題は出さない）
-function makeSet(level, n, rnd){
-  return shuffle(buildProblems(level), rnd).slice(0, n);
+// 1回分の問題を n問 えらぶ（同じ問題は出さない。まぜるときは 4つの形を 同じくらいずつ）
+function makeSet(level, n, rnd, mode){
+  const pools = buildProblems(level, mode||'add').map(p=>shuffle(p, rnd));
+  const out = [];
+  for(let i=0; out.length<n && pools.some(p=>i<p.length); i++)
+    pools.forEach(p=>{ if(i<p.length && out.length<n) out.push(p[i]); });
+  return shuffle(out, rnd);
 }
 // ブロックの ならび：それぞれの 数の 真下に その数だけ
-// ひかれる数（a）は ぬりつぶし、ひく数（b・c）は ななめ線
-function blockPlan(a,b,c){
-  return [[a,'c1'],[b,'out c2'],[c,'out c3']];
+// はじめの数と たす数は ぬりつぶし、ひく数は ななめ線
+function blockPlan(p){
+  return [[p[0],'c1'],[p[2],(p[1]<0?'out ':'')+'c2'],[p[4],(p[3]<0?'out ':'')+'c3']];
 }
 
 /* ===== 画面 ===== */
 const $ = id => document.getElementById(id);
-const state = { level:1, hint:'block', count:10, set:[], idx:0, shown:false, midShown:false, lockUntil:0 };
+const state = { level:1, mode:'add', hint:'block', count:10, set:[], idx:0, shown:false, midShown:false, lockUntil:0 };
 
 function show(id){
   ['start','play','end'].forEach(s=>$(s).classList.toggle('on', s===id));
@@ -222,11 +260,12 @@ function bindChoices(groupId, key, conv){
   });
 }
 bindChoices('levelChoices','level',Number);
+bindChoices('modeChoices','mode',String);
 bindChoices('hintChoices','hint',String);
 bindChoices('countChoices','count',Number);
 
 function begin(){
-  state.set = makeSet(state.level, state.count, Math.random);
+  state.set = makeSet(state.level, state.count, Math.random, state.mode);
   state.idx = 0;
   $('expr').className = 'expr hint-' + state.hint;
   show('play');
@@ -238,18 +277,19 @@ $('setBtn').addEventListener('click', ()=>show('start'));
 $('homeBtn').addEventListener('click', e=>{ e.stopPropagation(); show('start'); });
 
 function render(){
-  const [a,b,c] = state.set[state.idx];
+  const p = state.set[state.idx], [a,o1,b,o2,c] = p, r = calc(p);
+  const sym = o => o<0 ? '－' : '＋';
   state.shown = false;
   state.midShown = false;
   const e = $('expr');
   e.innerHTML =
-    '<span class="num n1">'+a+'</span><span class="op">－</span>'+
-    '<span class="num n2">'+b+'</span><span class="op">－</span>'+
+    '<span class="num n1">'+a+'</span><span class="op">'+sym(o1)+'</span>'+
+    '<span class="num n2">'+b+'</span><span class="op">'+sym(o2)+'</span>'+
     '<span class="num n3">'+c+'</span><span class="op">＝</span>'+
-    '<span class="answer hidden" id="answer">'+(a-b-c)+'</span>';
+    '<span class="answer hidden" id="answer">'+r.ans+'</span>';
   if(state.hint === 'block'){
     // それぞれの数の 真下に、たて5こずつで ならべる
-    blockPlan(a,b,c).forEach(([n,cls],i)=>{
+    blockPlan(p).forEach(([n,cls],i)=>{
       const g=document.createElement('div'); g.className='bcol c-'+(i+1);
       for(let k=0;k<n;k++){ const d=document.createElement('div'); d.className='blk '+cls; g.appendChild(d); }
       e.appendChild(g);
@@ -257,7 +297,7 @@ function render(){
   }else if(state.hint === 'cherry'){
     const ch=document.createElement('div'); ch.className='cherry';
     ch.innerHTML='<svg aria-hidden="true"><line/><line/><rect/><text class="hidden" id="mid"></text></svg>';
-    ch.querySelector('#mid').textContent = a - b;
+    ch.querySelector('#mid').textContent = r.mid;
     e.appendChild(ch);
     drawCherry();
   }
@@ -314,7 +354,7 @@ $('play').addEventListener('click', ()=> tap(Date.now()));
 // iOS のピンチズーム抑制
 document.addEventListener('gesturestart', e=>e.preventDefault());
 
-if(typeof module!=='undefined') module.exports={buildProblems,shuffle,makeSet,blockPlan,cherryGeom};
+if(typeof module!=='undefined') module.exports={calc,buildPattern,buildProblems,shuffle,makeSet,blockPlan,cherryGeom};
 </script>
 </body>
 </html>
